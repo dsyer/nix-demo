@@ -1,8 +1,7 @@
-{ pkgs ? import ./.nix/nixpkgs.nix
-}:
-let
-  inherit (pkgs) mkShell figlet pack nixos-playwright;
-in mkShell {
+with import <nixpkgs> {
+  overlays = import .nix/overlays;
+};
+mkShell {
 
   name = "env";
   buildInputs = [
