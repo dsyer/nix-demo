@@ -1,1 +1,3 @@
-import (builtins.fetchGit (import ./version.nix)) { }
+import (builtins.fetchGit (import ./version.nix)) { 
+	overlays = import ./overlays;
+}

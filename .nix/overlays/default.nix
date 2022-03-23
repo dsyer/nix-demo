@@ -1,0 +1,3 @@
+[
+	(import ./pack.nix)
+]

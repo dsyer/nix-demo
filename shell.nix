@@ -1,12 +1,13 @@
 { pkgs ? import ./.nix/nixpkgs.nix
 }:
 let
-  inherit (pkgs) mkShell figlet;
+  inherit (pkgs) mkShell figlet pack;
 in mkShell {
 
   name = "env";
   buildInputs = [
     figlet
+    pack
   ];
 
   shellHook = ''
