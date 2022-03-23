@@ -1,6 +1,6 @@
 with import <nixpkgs> { };
 let
-  nixos-playwright = stdenv.mkDerivation {
+  nixos-playwright = stdenv.kDerivation {
     pname = "nixos-playwright";
     version = "0.0.1";
     src = fetchgit {
@@ -15,13 +15,9 @@ let
     '';
   };
 in mkShell {
-
   name = "env";
-  buildInputs = [ figlet nixos-playwright ];
-
+  buildInputs = [ hello figlet nixos-playwright ];
   shellHook = ''
-    export MESSAGE=Hello
-    figlet $MESSAGE
+    export MESSAGE='Hi There'
   '';
-
 }
