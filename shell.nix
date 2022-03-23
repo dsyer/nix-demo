@@ -1,5 +1,8 @@
-with import <nixpkgs> {};
-mkShell {
+{ pkgs ? import ./.nix/nixpkgs.nix
+}:
+let
+  inherit (pkgs) mkShell figlet;
+in mkShell {
 
   name = "env";
   buildInputs = [
