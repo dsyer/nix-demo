@@ -1,23 +1,17 @@
-with import <nixpkgs> { };
-let
-  nixos-playwright = stdenv.kDerivation {
-    pname = "nixos-playwright";
-    version = "0.0.1";
-    src = fetchgit {
-      url = "https://github.com/ludios/nixos-playwright";
-      sha256 = "1yb4dx67x3qxs2842hxhhlqb0knvz6ib2fmws50aid9mzaxbl0w0";
-      rev = "fdafd9d4e0e76bac9283c35a81c7c0481a8b1313";
-    };
-    phases = [ "installPhase" ];
-    installPhase = ''
-      mkdir -p $out/bin
-      cd $out/bin && cp $src/* .
-    '';
-  };
-in mkShell {
+with import <nixpkgs> {
+  overlays = [
+    (self: super: {
+      hello = super.hello.overrideAttrs(oldAttrs: rec {
+        version = "2.9";
+        src = self.fetchurl {
+            url = "mirror://gnu/hello/${super.hello.pname}-${version}.tar.gz";
+            sha256 = "19qy37gkasc4csb1d3bdiz9snn8mir2p3aj0jgzmfv0r2hi7mfzc";        
+        };
+      });
+    })
+  ];
+};
+mkShell {
   name = "env";
-  buildInputs = [ hello figlet nixos-playwright ];
-  shellHook = ''
-    export MESSAGE='Hi There'
-  '';
+  buildInputs = [ hello ];
 }
