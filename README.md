@@ -448,6 +448,22 @@ So replacing the vendor hash with `1rr...` works in our `shell.nix` example abov
 
 ### Overriding Python
 
+You can use the Nix packages `python` and `python2` interchangeably, or `python3` to get the version you want. There are quite a few packages built into Nix as well, so you can install those as well from the command line, or as `buildInputs` in `shell.nix`:
+
+```
+$ nix-shell -p python3.pkgs.numpy
+nix:$ python --version
+Python 3.9.9
+nix:$ python
+Python 3.9.9 (main, Nov 15 2021, 18:05:17) 
+[GCC 10.3.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import numpy
+>>> 
+```
+
+There is also an alias `python3Packages` for `python3.pkgs` (defined in the global `all-packages.nix`).
+
 Python has a lot of modules, some binary, that it likes to store globally. Dynamically downloading additional modules with `pip` is quite a common idiom for developers, but it isn't idiomatic in Nix because it is mutable state and there are no Nix hashes for the dynamic modules. Sometimes life is too short, or you need a Python module that isn't included in `nixpkgs`. In those cases you can hack a bit and create a virtual Python environment locally, so at least the mutable state is all in the local directory. Here is an example installing a wheel (module) called `wasmtime` that isn't included in Nix natively:
 
 ```nix
