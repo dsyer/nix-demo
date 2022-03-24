@@ -19,6 +19,7 @@
   - [Immutable Environment](#immutable-environment)
   - [Nix in Docker](#nix-in-docker)
   - [Building and Testing](#building-and-testing)
+  - [Cleaning Up](#cleaning-up)
 
 ## Getting Started
 
@@ -660,7 +661,14 @@ $ nix-build -E 'with import <nixpkgs> {}; import ./hello.nix pkgs pkgs'
 /nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
 ```
 
-The result on the console tells you where the build output was placed so you can poke around in there and make sure it did what you wanted. If you have a derivation instead of an overlay, e.g. `buildpack.nix`:
+The result on the console tells you where the build output was placed so you can poke around in there and make sure it did what you wanted. It also creates a symlink to it in the current directory:
+
+```
+$ ls -l result
+lrwxrwxrwx 1 dsyer dsyer 53 Mar 24 14:59 result -> /nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
+```
+
+If you have a derivation instead of an overlay, e.g. `buildpack.nix`:
 
 ```nix
 { stdenv, fetchurl }: stdenv.mkDerivation {
@@ -711,3 +719,19 @@ error: build of '/nix/store/baqz8x4v1d9sql8vl597c3qykvhx8wv5-env.drv' failed
 ```
 
 That might be a good argument in favour of modularizing `shell.nix` so you can build and test the individual parts.
+
+## Cleaning Up
+
+Messing around with `nix-shell` and `nix-build` can create a lot of garbage - package build results (realizations) that are not used anywhere and whose shell has exited. You can delete all the `result` symlinks from `nix-build` and then do a garbage collection to clean up:
+
+```
+$ rm result
+$ nix-collect-garbage -d
+...
+deleting '/nix/store/xdilnlzvvsf7r33gs4vy9jq2bmazlc0j-hello-2.9.tar.gz'
+deleting '/nix/store/304p4j29irpp4s0d04a6r414ahawghwd-nix-prefetch-cvs'
+deleting '/nix/store/trash'
+deleting unused links...
+note: currently hard linking saves -0.00 MiB
+1326 store paths deleted, 2623.55 MiB freed
+```
