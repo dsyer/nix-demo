@@ -577,3 +577,25 @@ mkShell {
 ```
 
 It takes a *long* time to start a shell the first time (`nixpkgs` is a lot of repository to clone). You get the reproducible immutability at the cost of everyone having wait for the `nixpkgs` to be downloaded.
+
+## Nix in Docker
+
+If you want to try it out and can't or don't want to install Nix, or if you want to use Nix in a remote or CI environment, it can be useful to pack it into a Docker image. This works:
+
+```Dockerfile
+ARG VARIANT="focal"
+FROM mcr.microsoft.com/vscode/devcontainers/base:0-${VARIANT}
+
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+   && apt-get -y install --no-install-recommends xz-utils
+
+USER vscode
+
+RUN curl -L https://nixos.org/nix/install | sh
+```
+
+It's the default `Dockerfile` for a `.devcontainer` from [VSCode Remote Containers](https://github.com/Microsoft/vscode-remote-release) with 2 additions: the `xz-utils` and the `curl ... | sh`.
+
+You can run that container in VSCode just by running the command (`CTRL-SHIFT P`) "Remote Containers: Open Folder in Container". It also works in Codespaces if you have access.
+
+More generally you need an Ubuntu base image with a non-root user with `sudo` access.
