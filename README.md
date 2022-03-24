@@ -1,6 +1,6 @@
 # Tips and Tricks with Nix Shell
 
-[Nix](https://nixos.org/download.html#download-nix) is a great way to get stable, reproducible package management, without needing to pollute your OS with multiple dependencies. It downloads and manages everything it needs in `/nix/store` (plus a few dotfiles in your home directory), and you can remove that stuff any time you want. You can also have multiple environments with different versions of various tools. And you can use it to prepare an environment for working on a project with its own dependencies and requirements. There is more than one way to do that, but we like to use `nix-shell` and this sample is an introduction to that very useful tool, and shows you how to set up some configuration for it so you can control the environment.
+[Nix](https://nixos.org/download.html#download-nix) is a great way to get stable, reproducible package management, without needing to pollute your OS with multiple dependencies. It downloads and manages everything it needs in `/nix/store` (plus a few dotfiles in your home directory), and you can remove that stuff any time you want. You can also have multiple environments with different versions of various tools. For example you can use it to prepare an environment for working on a project with its own dependencies and requirements. There is more than one way to do that, but we like to use `nix-shell` and this sample is an introduction to that very useful tool, and shows you how to set up some configuration for it so you can control the environment.
 
 - [Tips and Tricks with Nix Shell](#tips-and-tricks-with-nix-shell)
 	- [Getting Started](#getting-started)
@@ -14,6 +14,9 @@
 		- [Overlays: Overriding a GNU Package](#overlays-overriding-a-gnu-package)
 		- [Overlays: Overriding a Go Package](#overlays-overriding-a-go-package)
 		- [Discovering the Hashes](#discovering-the-hashes)
+		- [Overriding Python](#overriding-python)
+	- [Modular Nix](#modular-nix)
+	- [Immutable Environment](#immutable-environment)
 
 ## Getting Started
 
@@ -33,7 +36,7 @@ nix:$ hello
 Hello, world!
 ```
 
-We just installed a new package and set up some symlinks so that `hello` is now magically on your `PATH`. You can do that with anything that Nix already knows about, and that is a vast collection of tools and utilities: https://github.com/NixOS/nixpkgs.
+You just installed a new package and set up some symlinks so that `hello` is now magically on your `PATH`. You can do that with anything that Nix already knows about, and that is a vast collection of tools and utilities: https://github.com/NixOS/nixpkgs.
 
 ## Finding a Package
 
@@ -61,6 +64,10 @@ mkShell {
 }
 ```
 
+* The function `mkShell` is defined in `nixpkgs`. It is passed 2 named arguments `name` and `buildInputs`.
+* The name "env" is arbitrary; it identifies this shell and its dependencies.
+* The `buildInputs` are a list of packages (derivations) defined in `nixpkgs`.
+
 With that in place you can forget that you have to remember the package name:
 
 ```
@@ -69,7 +76,7 @@ nix:$ hello
 Hello World!
 ```
 
-You can add a hook to set up environment variables or whatever:
+The `mkShell` function has other optional arguments. You can add a hook to source some shell commands, e.g. to set up environment variables:
 
 ```nix
 with import <nixpkgs> { };
@@ -84,7 +91,7 @@ mkShell {
 }
 ```
 
-so now the shell has an environment variable called `MESSAGE`:
+Now the shell has an environment variable called `MESSAGE`:
 
 ```
 $ nix-shell
@@ -128,19 +135,18 @@ You can add as many packages there as you need to build up the environment for y
 
 ## Adding New Packages
 
-Some packages don't exist in Nix - it's a large open source community so most things you need will be there, but not if it's new or a bit of a niche. It's better to get it from there if you can because there are caches and it saves toil, but it can happen that you want to install something new. We can do that by adding a package to the defaults. As an example suppose that we want to install the utility scripts at https://github.com/ludios/nixos-playwright. So we modify the `shell.nix`:
+Some packages don't exist in Nix - it's a large open source community so most things you need will be there, but not if it's new or a bit of a niche. It's better to get it from there if you can because there are caches and it saves toil, but it can happen that you want to install something new. You can do that by adding a package to the defaults. As an example suppose that you want to install the utility scripts at https://github.com/ludios/nixos-playwright. So modify the `shell.nix`:
 
 ```nix
 with import <nixpkgs> { };
 let
-	nixos-playwright = stdenv.mkDerivation { ... };
-
+  nixos-playwright = stdenv.mkDerivation { ... };
 in mkShell {
   name = "env";
   buildInputs = [
     hello
     figlet
-	nixos-playwright
+    nixos-playwright
   ];
   shellHook = ''
     export MESSAGE='Hi There'
@@ -148,12 +154,12 @@ in mkShell {
 }
 ```
 
-What we added was a "namespace" for the `mkShell` using `let ... in`. All variables defined in the `let` can be used in the body and we used ours in the `buildInputs` by trivially referring to its identifier `nixos-playwright`. The `...` in the prologue is a "derivation" - a recipe for a new package. Nix comes with a built in `mkDerivation` which we are using as a convenience. It does a bunch of stuff, including if we need it configuring, building and installing software from standard GNU-style source code repositories. 
+What we added was a "namespace" for the `mkShell` using `let ... in`. All variables defined in the `let` can be used in the body and we used ours in the `buildInputs` by trivially referring to its identifier `nixos-playwright`. The `...` in the prologue is a placeholder for a "derivation" - a recipe for a new package. Nix comes with a built in `mkDerivation` which we are using as a convenience. It does a bunch of stuff including if we need them configuring, building and installing software from standard GNU-style source code repositories. 
 
 For the `nixos-playwright` package we just need to clone a git repository and copy the scripts to our path. There is no build and no additional toolchain so we don't really need all of the machinery that `mkDerivation` brings with it, but that's OK, we can configure it to just do what we need:
 
 ```nix
-nixos-playwright = stdenv.kDerivation {
+nixos-playwright = stdenv.mkDerivation {
   pname = "nixos-playwright";
   version = "0.0.1";
   src = fetchgit {
@@ -178,9 +184,10 @@ There's quite a bit to unpack there.
 * `phases` by default is a long list of things to do to build a package. We only need one step so we choose `installPhase`.
 * `installPhase` is the definition of that phase as a shell script. In it we create a new `bin` directory and copy the scripts from our source code.
 
+
 ## Prefetch
 
-The `sha256` in the recipe above is a hash of the source code after it has been cloned. The build will break if the hash code changes which is useful. If it breaks it will tell you what value it expected and what it saw instead. If you just want the "latest" you can copy paste that value and carry on. Or you can use `nix-prefect-git` to download the source code ahead of time and inspect the metadata:
+The `sha256` in the recipe above is a hash of the source code after it has been cloned. Everything is immutable in Nix and this is enforced through hashes of source code. To install or override a package from an external source you need the hashes, so Nix provides some utilities to help discover them, and also cache the source code locally. The build will break if the hash code changes which is useful. If it breaks it will tell you what value it expected and what it saw instead. You can copy-paste that value from the error message. Or you can use `nix-prefect-git` to download the source code ahead of time and inspect the metadata:
 
 ```
 $ nix-shell -p nix-prefetch-git
@@ -233,11 +240,11 @@ The plain `nix-prefetch` package has `nix-prefetch-url` for example, which you c
 
 ## Modifying Existing Packages
 
-Suppose we like the existing package for a tool that we want to use, but we need a different version or something.
+Supposeyou like the existing package for a tool that you want to use, but you need a different version or something.
 
 ### Downloading a Binary Package
 
-We could use the same mechanism as above to simply replace the package with our own manual derivation. For example, we can install the `pack` CLI:
+You could use the same mechanism as above to simply replace the package with our own manual derivation. For example, you can install the `pack` CLI:
 
 ```nix
 with import <nixpkgs> { };
@@ -278,7 +285,7 @@ nix:$ pack version
 0.23.0+git-0db2c77.build-3056
 ```
 
-but that would be more work than necessary and it would miss all the hard work that the existing package already has behind it. The standard package for `pack` also builds it from source and links statically to all the libraries it needs. It is better to re-use the existing derivation if we can because downloading pre-built binaries can fail if they end up in an environment which doesn't have the right shared libraries (e.g. Alpine Linux or NixOS). It is better to use an overlay.
+but that would be more work than necessary and it would miss all the hard work that the existing package already has behind it. The standard package for `pack` also builds it from source and links statically to all the libraries it needs. It is better to re-use the existing derivation if you can because downloading pre-built binaries can fail if they end up in an environment which doesn't have the right shared libraries (e.g. Alpine Linux or NixOS). It is better to use an overlay.
 
 There is already a `buildpack` package in Nix, so this works:
 
@@ -311,7 +318,7 @@ Let's have a look at how to define a couple of overlays.
 
 ### Overlays: Overriding a GNU Package
 
-A package that is built with the standard GNU toolchain is usually straighforward to overlay. We can override some of the properties of existing packages by adding expressions to the overlays. Example `shell.nix`:
+A package that is built with the standard GNU toolchain is usually straighforward to overlay. You can override some of the properties of existing packages by adding expressions to the overlays. Example `shell.nix`:
 
 ```nix
 with import <nixpkgs> {
@@ -333,7 +340,7 @@ mkShell {
 }
 ```
 
-The only slightly hard thing there was the hash, which we can find using `nix-prefetch-url`:
+The only slightly hard thing there was the hash, which you can find using `nix-prefetch-url`:
 
 ```
 $ nix-shell -p nix-prefetch --command 'nix-prefetch-url mirror://gnu/hello/hello-2.9.tar.gz'
@@ -387,7 +394,7 @@ It was hard to craft that override. The worst thing was the vendor hash (see bel
 
 ### Discovering the Hashes
 
-First grab some prefetch utilities:
+Grab some prefetch utilities:
 
 ```
 $ nix-shell -p nix-prefetch-git nix-prefetch
@@ -437,3 +444,136 @@ cannot build derivation '/nix/store/z16ffs56xk6w297bfkfs8y6nvsrnvviy-pack-0.22.0
 ```
 
 So replacing the vendor hash with `1rr...` works in our `shell.nix` example above.
+
+### Overriding Python
+
+Python has a lot of modules, some binary, that it likes to store globally. Dynamically downloading additional modules with `pip` is quite a common idiom for developers, but it isn't idiomatic in Nix because it is mutable state and there are no Nix hashes for the dynamic modules. Sometimes life is too short, or you need a Python module that isn't included in `nixpkgs`. In those cases you can hack a bit and create a virtual Python environment locally, so at least the mutable state is all in the local directory. Here is an example installing a wheel (module) called `wasmtime` that isn't included in Nix natively:
+
+```nix
+with import <nixpkgs> { };
+mkShell {
+
+  name = "env";
+  buildInputs = [
+    python3Packages.python
+    python3Packages.venvShellHook
+    wasmtime wabt emscripten nodejs cmake check
+  ];
+
+  venvDir = "./.venv";
+  postVenvCreation = ''
+    unset SOURCE_DATE_EPOCH
+    pip install wasmtime
+  '';
+
+  postShellHook = ''
+    # allow pip to install wheels
+    unset SOURCE_DATE_EPOCH
+  '';
+
+}
+```
+
+It creates a `.venv` directory locally if it doesn't exist, and `pip` will use that to install additional modules.
+
+## Modular Nix
+
+We saw the `import` function a few times, mainly at the start of `shell.nix`:
+
+```nix
+with import <nixpkgs> { };
+mkShell {
+...
+}
+```
+
+`<nixpkgs>` is the global set of packages that was downloaded when you installed Nix. The `<>` placeholder tells Nix to search the `NIX_PATH` for a directory called `nixpkgs`.
+
+```
+$ echo $NIX_PATH
+/home/dsyer/.nix-defexpr/channels
+$ ls /home/dsyer/.nix-defexpr/channels
+manifest.nix  nixpkgs
+```
+
+`NIX_PATH` can be a list of directories separated with the usual path separator, but in this case it is just one.
+
+You can also import a local file or directory having a `default.nix`, or a URL if it has a `default.nix` at the root. The result of an import is a Nix expression. So `import <nixpkgs>` loads the content of `default.nix` from that directory and evaluates it. In this case it evaluates to a function definition so you have to provide arguments: `{}` are empty arguments, which we have seen already can contain key value pairs, according to the definition. The function in this case has a large number of arguments, all of which have default values, so empty is OK.
+
+You could extract our overlays out into a separate file, or files. For example in `shell.nix`:
+
+```nix
+with import <nixpkgs> {
+  overlays = [
+    (import ./hello.nix)
+  ];
+};
+mkShell {
+  name = "env";
+  buildInputs = [ hello ];
+}
+```
+
+and `hello.nix`:
+
+```nix
+self: super: {
+  hello = super.hello.overrideAttrs(oldAttrs: rec {
+    version = "2.9";
+    src = self.fetchurl {
+        url = "mirror://gnu/hello/${super.hello.pname}-${version}.tar.gz";
+        sha256 = "19qy37gkasc4csb1d3bdiz9snn8mir2p3aj0jgzmfv0r2hi7mfzc";
+    };
+  });
+}
+```
+
+Or you could collect all the overlays together with `shell.nix` like this:
+
+```nix
+with import <nixpkgs> {
+  overlays = (import ./overlays.nix);
+};
+mkShell {
+  name = "env";
+  buildInputs = [ hello ];
+}
+```
+
+and `overlays.nix` evaluates to a list:
+
+```nix
+[
+  (import ./hello.nix)
+]
+```
+
+Because of the way `import` works, you could also move those scripts into a subdirectory `overlays`, rename `overlays.nix` as `default.nix` and import the directory:
+
+```nix
+with import <nixpkgs> {
+  overlays = (import ./overlays);
+};
+mkShell {
+  name = "env";
+  buildInputs = [ hello ];
+}
+```
+
+## Immutable Environment
+
+Usually we are more than happy to just use `import <nixpkgs>` as the source of packages for `nix-shell`. It uses the `NIX_PATH` to locate the package definitions, but the contents of that path might change from time to time, and from machine to machine. If you want cast iron guarantees that everyone who downloads your `shell.nix` gets exactly the same result, you need to pin the source of `nixpkgs`. You can do that by importing a specific version:
+
+```nix
+with import (builtins.fetchGit {
+  name = "nixos-21.11";
+  url = https://github.com/nixos/nixpkgs.git;
+  ref = "refs/tags/21.11";
+}) { };
+mkShell {
+  name = "env";
+  buildInputs = [ hello ];
+}
+```
+
+It takes a *long* time to start a shell the first time (`nixpkgs` is a lot of repository to clone). You get the reproducible immutability at the cost of everyone having wait for the `nixpkgs` to be downloaded.

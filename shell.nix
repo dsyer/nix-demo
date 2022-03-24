@@ -1,16 +1,8 @@
-with import <nixpkgs> {
-  overlays = [
-    (self: super: {
-      hello = super.hello.overrideAttrs(oldAttrs: rec {
-        version = "2.9";
-        src = self.fetchurl {
-            url = "mirror://gnu/hello/${super.hello.pname}-${version}.tar.gz";
-            sha256 = "19qy37gkasc4csb1d3bdiz9snn8mir2p3aj0jgzmfv0r2hi7mfzc";        
-        };
-      });
-    })
-  ];
-};
+with import (builtins.fetchGit {
+  name = "nixos-21.11";
+  url = https://github.com/nixos/nixpkgs.git;
+  ref = "refs/tags/21.11";
+}) { };
 mkShell {
   name = "env";
   buildInputs = [ hello ];
