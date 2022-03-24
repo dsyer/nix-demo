@@ -18,6 +18,7 @@
   - [Modular Nix](#modular-nix)
   - [Immutable Environment](#immutable-environment)
   - [Nix in Docker](#nix-in-docker)
+  - [Building and Testing](#building-and-testing)
 
 ## Getting Started
 
@@ -37,7 +38,7 @@ nix:$ hello
 Hello, world!
 ```
 
-You just installed a new package and set up some symlinks so that `hello` is now magically on your `PATH`. You can do that with anything that Nix already knows about, and that is a vast collection of tools and utilities: https://github.com/NixOS/nixpkgs.
+You just installed a new package and set up some symlinks so that `hello` is now magically on your `PATH`. If you exit this shell your environment will forget it ever knew about `hello`. You can do that with anything that Nix already knows about, and that is a vast collection of tools and utilities: https://github.com/NixOS/nixpkgs.
 
 ## Finding a Package
 
@@ -245,7 +246,7 @@ Supposeyou like the existing package for a tool that you want to use, but you ne
 
 ### Downloading a Binary Package
 
-You could use the same mechanism as above to simply replace the package with our own manual derivation. For example, you can install the `pack` CLI:
+You could use the same mechanism as above to simply replace the package with our own manual derivation. For example, you can install the `pack` CLI from a binary release on Github:
 
 ```nix
 with import <nixpkgs> { };
@@ -253,7 +254,7 @@ let
   buildpack = stdenv.mkDerivation {
     pname = "buildpack";
     version = "0.23.0";
-    src = super.fetchurl {
+    src = fetchurl {
       # nix-prefetch-url this URL to find the hash value
       url =
         "https://github.com/buildpacks/pack/releases/download/v0.23.0/pack-v0.23.0-linux.tgz";
@@ -286,7 +287,7 @@ nix:$ pack version
 0.23.0+git-0db2c77.build-3056
 ```
 
-but that would be more work than necessary and it would miss all the hard work that the existing package already has behind it. The standard package for `pack` also builds it from source and links statically to all the libraries it needs. It is better to re-use the existing derivation if you can because downloading pre-built binaries can fail if they end up in an environment which doesn't have the right shared libraries (e.g. Alpine Linux or NixOS). It is better to use an overlay.
+But that is more work than necessary and it would miss all the hard work by other people on the existing package. The standard package for `pack` also builds it from source and links statically to all the libraries it needs. It is better to re-use the existing derivation if you can because downloading pre-built binaries can fail if they end up in an environment which doesn't have the right shared libraries (e.g. Alpine or NixOS).
 
 There is already a `buildpack` package in Nix, so this works:
 
@@ -595,6 +596,18 @@ mkShell {
 
 It takes a *long* time to start a shell the first time (`nixpkgs` is a lot of repository to clone). You get the reproducible immutability at the cost of everyone having wait for the `nixpkgs` to be downloaded.
 
+Instead of fetching with Git we could download a tarball:
+
+```nix
+with import (builtins.fetchTarball https://github.com/NixOS/nixpkgs/archive/nixos-21.11.tar.gz) { };
+mkShell {
+  name = "env";
+  buildInputs = [ hello ];
+}
+```
+
+It's still going to be slow, but maybe not as bad because the git metadata won't be needed.
+
 ## Nix in Docker
 
 If you want to try it out and can't or don't want to install Nix, or if you want to use Nix in a remote or CI environment, it can be useful to pack it into a Docker image. This works:
@@ -616,3 +629,85 @@ It's the default `Dockerfile` for a `.devcontainer` from [VSCode Remote Containe
 You can run that container in VSCode just by running the command (`CTRL-SHIFT P`) "Remote Containers: Open Folder in Container". It also works in Codespaces if you have access.
 
 More generally you need an Ubuntu base image with a non-root user with `sudo` access.
+
+## Building and Testing
+
+If you have an overlay in a file, e.g. `hello.nix`:
+
+```nix
+self: super: {
+  hello = super.hello.overrideAttrs(oldAttrs: rec {
+    version = "2.9";
+    src = self.fetchurl {
+        url = "mirror://gnu/hello/${super.hello.pname}-${version}.tar.gz";
+        sha256 = "19qy37gkasc4csb1d3bdiz9snn8mir2p3aj0jgzmfv0r2hi7mfzc";
+    };
+  });
+}
+```
+
+you can build it without setting up a shell environment using `nix-build`. This is useful while developing a new overlay for instance. Here's one way to build it:
+
+```
+$ nix-build -E 'with import <nixpkgs> { overlays = [(import ./hello.nix)]; }; hello 
+/nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
+```
+
+Here's another:
+
+```
+$ nix-build -E 'with import <nixpkgs> {}; import ./hello.nix pkgs pkgs'
+/nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
+```
+
+The result on the console tells you where the build output was placed so you can poke around in there and make sure it did what you wanted. If you have a derivation instead of an overlay, e.g. `buildpack.nix`:
+
+```nix
+{ stdenv, fetchurl }: stdenv.mkDerivation {
+  pname = "buildpack";
+  version = "0.23.0";
+  src = fetchurl {
+    # nix-prefetch-url this URL to find the hash value
+    url =
+      "https://github.com/buildpacks/pack/releases/download/v0.23.0/pack-v0.23.0-linux.tgz";
+    sha256 = "1vkm0fbk66k8bi5pf4hkmq7929y5av3lh0xj3wpapj2fry18j9yi";
+  };
+  phases = [ "installPhase" ];
+  installPhase = ''
+    mkdir -p $out/bin
+    cd $out/bin && tar -zxf $src
+  '';
+}
+```
+
+you can build it like this:
+
+```
+$ nix-build -E 'with import <nixpkgs> {}; callPackage ./buildpack.nix {}'
+/nix/store/n6rbcjhhfb77iiilin8xk0kp8vr4f04x-buildpack-0.23.0
+```
+
+Or you could build both at once by making the expression a list:
+
+```
+$ nix-build -E 'with import <nixpkgs> { overlays = [(import ./hello.nix)]; }; [hello (callPackage ./buildpack.nix {})]'
+/nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
+/nix/store/n6rbcjhhfb77iiilin8xk0kp8vr4f04x-buildpack-0.23.0
+```
+
+You can't build a `shell.nix` the way we wrote it because `mkShell` was designed to fail if you try to build it:
+
+```
+$ nix-build shell.nix 
+these derivations will be built:
+  /nix/store/baqz8x4v1d9sql8vl597c3qykvhx8wv5-env.drv
+building '/nix/store/baqz8x4v1d9sql8vl597c3qykvhx8wv5-env.drv'...
+nobuildPhase
+
+This derivation is not meant to be built, aborting
+
+builder for '/nix/store/baqz8x4v1d9sql8vl597c3qykvhx8wv5-env.drv' failed with exit code 1
+error: build of '/nix/store/baqz8x4v1d9sql8vl597c3qykvhx8wv5-env.drv' failed
+```
+
+That might be a good argument in favour of modularizing `shell.nix` so you can build and test the individual parts.
