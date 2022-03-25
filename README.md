@@ -441,7 +441,7 @@ stdenv.mkDerivation rec {
 
 ```
 
-The problem is `rmdir tmp` (there is no `tmp` directory in the new releases). So we have to replace the `installPhase` to make it work. More sigh.
+The problem is `rmdir tmp` (there is no `tmp` directory in the new releases). So we have to add a hacky hook to make it work. More sigh.
 
 ```nix
 with import <nixpkgs> {
@@ -454,7 +454,7 @@ with import <nixpkgs> {
             "https://github.com/jbangdev/jbang/releases/download/v${version}/jbang-${version}.tar";
           sha256 = "0gbdbjyyh2if3yfmwfd6d3yq8r25inhw7n44jbjw1pdqb6gk44z1";
         };
-        installPhase = builtins.replaceStrings ["rmdir tmp\n"] [""] oldAttrs.installPhase;
+        preInstall = "mkdir -p tmp";
       });
     })
   ];
@@ -468,7 +468,7 @@ mkShell {
 }
 ```
 
-and finally that will work:
+(Or we could replace the `installPhase` with `installPhase = builtins.replaceStrings ["rmdir tmp\n"] [""] oldAttrs.installPhase;`.) Finally:
 
 ```
 $ nix-shell
