@@ -720,6 +720,42 @@ error: build of '/nix/store/baqz8x4v1d9sql8vl597c3qykvhx8wv5-env.drv' failed
 
 That might be a good argument in favour of modularizing `shell.nix` so you can build and test the individual parts.
 
+Or you can get crafty and trick Nix into instantiating the _dependencies_ of `shell.nix` including the `buildInputs` which is what we care about. Here's a recipe:
+
+```
+$ nix-store --query --references $(nix-instantiate shell.nix) | xargs nix-store --realise
+warning: you did not specify '--add-root'; the result might be removed by the garbage collector
+warning: you did not specify '--add-root'; the result might be removed by the garbage collector
+/nix/store/9krlzvny65gdc8s7kpb6lkx8cd02c25b-default-builder.sh
+/nix/store/491pip6wwmcw8vcv7gasf3mafslm1zgp-bash-5.1-p12-dev
+/nix/store/9wm9l8l9lxhbv87cq96s6slxncn0bkw8-bash-5.1-p12-doc
+/nix/store/iqprjr5k5385bhf1dzj07zwd5p43py1n-bash-5.1-p12
+/nix/store/ryzzidspjfragaa61d7dchh7qwcyc6ni-bash-5.1-p12-man
+/nix/store/ydwmvhbdh92kxzwcvnwzgyhch853237q-bash-5.1-p12-info
+/nix/store/lwcfw5vyjlzrs35k1hanv21j1q2s5c5w-stdenv-linux
+/nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
+$ /nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9/bin/hello 
+Hello, world!
+```
+
+It's quite a long list, and interesting in its own right, but most of it can come from caches so it won't take long to build and if you do it again it will be instantaneous. You don't get the GC root and you don't get the `result` symlink so a garbage collection will delete all the stuff you built, but maybe that's an advantage if all you wanted was to test the build.
+
+An interesting alternative is to use `nix-build` and just extract the inputs:
+
+```
+$ grep buildInputs $(nix-build shell.nix -A inputDerivation)
+declare -x buildInputs="/nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9"
+```
+
+With a bit of manipulation:
+
+```
+$ grep buildInputs $(nix-build shell.nix -A inputDerivation) | sed -e 's/.*="//' -e 's/"$//'
+/nix/store/9yax801jmqg12rkf6j9rr1wc8zc1lj7x-hello-2.9
+```
+
+If there were multiple inputs they would show up as a space separated list.
+
 ## Cleaning Up
 
 Messing around with `nix-shell` and `nix-build` can create a lot of garbage - package build results (realizations) that are not used anywhere and whose shell has exited. You can delete all the `result` symlinks from `nix-build` and then do a garbage collection to clean up:
