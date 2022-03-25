@@ -11,7 +11,8 @@
   - [Prefetch](#prefetch)
   - [Modifying Existing Packages](#modifying-existing-packages)
     - [Downloading a Binary Package](#downloading-a-binary-package)
-    - [Overlays: Overriding a GNU Package](#overlays-overriding-a-gnu-package)
+    - [Overlays: Overriding a Simple Package](#overlays-overriding-a-simple-package)
+    - [Overlays: Something Less Trivial](#overlays-something-less-trivial)
     - [Overlays: Overriding a Go Package](#overlays-overriding-a-go-package)
     - [Discovering the Hashes](#discovering-the-hashes)
     - [Overriding Python](#overriding-python)
@@ -319,7 +320,7 @@ mkShell {
 
 Let's have a look at how to define a couple of overlays.
 
-### Overlays: Overriding a GNU Package
+### Overlays: Overriding a Simple Package
 
 A package that is built with the standard GNU toolchain is usually straighforward to overlay. You can override some of the properties of existing packages by adding expressions to the overlays. Example `shell.nix`:
 
@@ -359,6 +360,129 @@ $ nix-shell
 nix:$ hello --version
 hello (GNU Hello) 2.9
 ...
+```
+
+### Overlays: Something Less Trivial
+
+Unfortunately life is not always that easy. For instance if we want to override `jbang` we might try:
+
+```
+$ nix-prefetch-url https://github.com/jbangdev/jbang/releases/download/v0.92.2/jbang.tar
+[6.1 MiB DL]
+path is '/nix/store/zyrhw8qrahkci5h3l7cgvh304724bdsj-jbang.tar'
+1j4srhnbnfmxz5db8zj2bdd08l6h3k0wjrqxpr9yc19964mr1bl5
+```
+
+and
+
+```
+with import <nixpkgs> {
+  overlays = [
+    (self: super: {
+      jbang = super.jbang.overrideAttrs (oldAttrs: rec {
+        version = "0.92.2";
+        src = self.fetchzip {
+          url =
+            "https://github.com/jbangdev/jbang/releases/download/v${version}/jbang-${version}.tar";
+          sha256 = "1j4srhnbnfmxz5db8zj2bdd08l6h3k0wjrqxpr9yc19964mr1bl5";
+        };
+    })
+  ];
+};
+
+mkShell {
+
+  name = "env";
+  buildInputs = [ jbang ];
+
+}
+```
+
+That fails because the hash doesn't match (wtf?):
+
+```
+$ nix-shell
+...
+hash mismatch in fixed-output derivation '/nix/store/x6q600nlhhw1amdxzlsw67g84ivlxrml-source':
+  wanted: sha256:1j4srhnbnfmxz5db8zj2bdd08l6h3k0wjrqxpr9yc19964mr1bl5
+  got:    sha256:0gbdbjyyh2if3yfmwfd6d3yq8r25inhw7n44jbjw1pdqb6gk44z1
+```
+
+So copy-paste the correct hash and it still fails:
+
+```
+$ nix-shell
+...
+no Makefile, doing nothing
+installing
+rmdir: failed to remove 'tmp': No such file or directory
+builder for '/nix/store/4ilb62wbpjf0nhihvbqlslwnrz78cp01-jbang-0.92.2.drv' failed with exit code 1
+error: build of '/nix/store/4ilb62wbpjf0nhihvbqlslwnrz78cp01-jbang-0.92.2.drv' failed
+```
+
+So there's a bug in the base derivation that we are overriding. Sigh. It's [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/jbang/default.nix) so let's track it down.
+
+```nix
+stdenv.mkDerivation rec {
+
+...
+
+  installPhase = ''
+    runHook preInstall
+    rm bin/jbang.{cmd,ps1}
+    rmdir tmp
+    cp -r . $out
+    wrapProgram $out/bin/jbang \
+      --set JAVA_HOME ${jdk} \
+      --set PATH ${lib.makeBinPath [ coreutils jdk curl ]}
+    runHook postInstall
+  '';
+...
+
+```
+
+The problem is `rmdir tmp` (there is no `tmp` directory in the new releases). So we have to replace the whole `installPhase` to make it works. More sigh.
+
+```nix
+with import <nixpkgs> {
+  overlays = [
+    (self: super: {
+      jbang = super.jbang.overrideAttrs (oldAttrs: rec {
+        version = "0.92.2";
+        src = self.fetchzip {
+          url =
+            "https://github.com/jbangdev/jbang/releases/download/v${version}/jbang-${version}.tar";
+          sha256 = "0gbdbjyyh2if3yfmwfd6d3yq8r25inhw7n44jbjw1pdqb6gk44z1";
+        };
+        installPhase = ''
+          runHook preInstall
+          rm bin/jbang.{cmd,ps1}
+          rm -rf tmp
+          cp -r . $out
+          wrapProgram $out/bin/jbang \
+            --set JAVA_HOME ${super.jdk} \
+            --set PATH ${super.lib.makeBinPath [ super.coreutils super.jdk super.curl ]}
+          runHook postInstall
+        '';
+      });
+    })
+  ];
+};
+
+mkShell {
+
+  name = "env";
+  buildInputs = [ jbang ];
+
+}
+```
+
+and finally that will work:
+
+```
+$ nix-shell
+nix:$ jbang --version
+0.92.2
 ```
 
 ### Overlays: Overriding a Go Package
