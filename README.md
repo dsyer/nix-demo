@@ -10,7 +10,8 @@
   - [Adding New Packages](#adding-new-packages)
   - [Prefetch](#prefetch)
   - [Modifying Existing Packages](#modifying-existing-packages)
-    - [Downloading a Binary Package](#downloading-a-binary-package)
+    - [Downloading a Binary](#downloading-a-binary)
+    - [Downloading a Tarball](#downloading-a-tarball)
     - [Overlays: Overriding a Simple Package](#overlays-overriding-a-simple-package)
     - [Overlays: Something Less Trivial](#overlays-something-less-trivial)
     - [Overlays: Overriding a Go Package](#overlays-overriding-a-go-package)
@@ -246,9 +247,51 @@ The plain `nix-prefetch` package has `nix-prefetch-url` for example, which you c
 
 Supposeyou like the existing package for a tool that you want to use, but you need a different version or something.
 
-### Downloading a Binary Package
+### Downloading a Binary
 
-You could use the same mechanism as above to simply replace the package with our own manual derivation. For example, you can install the `pack` CLI from a binary release on Github:
+You could use the same mechanism as above to simply replace the package with our own manual derivation. For example, you can install the `kbld` CLI from Carvel:
+
+```nix
+with import <nixpkgs> { };
+let
+  kbld = stdenv.mkDerivation {
+    pname = "kbld";
+    version = "0.32.0";
+    src = fetchurl {
+      # nix-prefetch-url this URL to find the hash value
+      url =
+        "https://github.com/vmware-tanzu/carvel-kbld/releases/download/v0.32.0/kbld-linux-amd64";
+      sha256 = "06im2ywxv7kmdfs00pc8b0jgbc7jxpgd4k6p1b183scrcp26lm6y";
+    };
+    phases = [ "installPhase" ];
+    installPhase = ''
+      mkdir -p $out/bin
+      chmod +x $src && mv $src $out/bin/kbld
+    '';
+  };
+
+in mkShell {
+  name = "env";
+  buildInputs = [
+    kbld
+  ];
+}
+```
+
+The release is an executable, so you just download it and move it to `$out/bin` It works:
+
+```
+$ nix-shell
+...
+building '/nix/store/r0d6nshb837d4c0d2i8lc0l49bzx9cbw-kbld-0.32.0.drv'...
+installing
+nix:$ kbld version
+kbld version 0.32.0
+```
+
+### Downloading a Tarball
+
+The `pack` CLI has an existing Nix package, abut there are also binary releases on Github. You can unpack them and copy the files over to `$out`:
 
 ```nix
 with import <nixpkgs> { };
@@ -280,6 +323,7 @@ in mkShell {
 It works:
 
 ```
+
 $ nix-shell
 these derivations will be built:
   /nix/store/sfqx1wf2vwda28ch9p7j4rafa3jrdm09-pack-0.23.0.drv
