@@ -3,25 +3,25 @@
 [Nix](https://nixos.org/download.html#download-nix) is a great way to get stable, reproducible package management, without needing to pollute your OS with multiple dependencies. It downloads and manages everything it needs in `/nix/store` (plus a few dotfiles in your home directory), and you can remove that stuff any time you want. You can also have multiple environments with different versions of various tools. For example you can use it to prepare an environment for working on a project with its own dependencies and requirements. There is more than one way to do that, but we like to use `nix-shell` and this sample is an introduction to that very useful tool, and shows you how to set up some configuration for it so you can control the environment.
 
 - [Tips and Tricks with Nix Shell](#tips-and-tricks-with-nix-shell)
-  - [Getting Started](#getting-started)
-  - [Finding a Package](#finding-a-package)
-  - [Configuring Nix Shell](#configuring-nix-shell)
-  - [More Packages](#more-packages)
-  - [Adding New Packages](#adding-new-packages)
-  - [Prefetch](#prefetch)
-  - [Modifying Existing Packages](#modifying-existing-packages)
-    - [Downloading a Binary](#downloading-a-binary)
-    - [Downloading a Tarball](#downloading-a-tarball)
-    - [Overlays: Overriding a Simple Package](#overlays-overriding-a-simple-package)
-    - [Overlays: Something Less Trivial](#overlays-something-less-trivial)
-    - [Overlays: Overriding a Go Package](#overlays-overriding-a-go-package)
-    - [Discovering the Hashes](#discovering-the-hashes)
-    - [Overriding Python](#overriding-python)
-  - [Modular Nix](#modular-nix)
-  - [Immutable Environment](#immutable-environment)
-  - [Nix in Docker](#nix-in-docker)
-  - [Building and Testing](#building-and-testing)
-  - [Cleaning Up](#cleaning-up)
+	- [Getting Started](#getting-started)
+	- [Finding a Package](#finding-a-package)
+	- [Configuring Nix Shell](#configuring-nix-shell)
+	- [More Packages](#more-packages)
+	- [Adding New Packages](#adding-new-packages)
+	- [Prefetch](#prefetch)
+	- [Modifying Existing Packages](#modifying-existing-packages)
+		- [Downloading a Binary](#downloading-a-binary)
+		- [Downloading a Tarball](#downloading-a-tarball)
+		- [Overlays: Overriding a Simple Package](#overlays-overriding-a-simple-package)
+		- [Overlays: Something Less Trivial](#overlays-something-less-trivial)
+		- [Overlays: Overriding a Go Package](#overlays-overriding-a-go-package)
+		- [Discovering the Hashes](#discovering-the-hashes)
+		- [Overriding Python](#overriding-python)
+	- [Modular Nix](#modular-nix)
+	- [Immutable Environment](#immutable-environment)
+	- [Nix in Docker](#nix-in-docker)
+	- [Building and Testing](#building-and-testing)
+	- [Cleaning Up](#cleaning-up)
 
 ## Getting Started
 
@@ -245,7 +245,7 @@ The plain `nix-prefetch` package has `nix-prefetch-url` for example, which you c
 
 ## Modifying Existing Packages
 
-Supposeyou like the existing package for a tool that you want to use, but you need a different version or something.
+Suppose you like the existing package for a tool that you want to use, but you need a different version or something.
 
 ### Downloading a Binary
 
@@ -291,7 +291,7 @@ kbld version 0.32.0
 
 ### Downloading a Tarball
 
-The `pack` CLI has an existing Nix package, abut there are also binary releases on Github. You can unpack them and copy the files over to `$out`:
+The `pack` CLI has an existing Nix package, but there are also binary releases on Github. You can unpack them and copy the files over to `$out`:
 
 ```nix
 with import <nixpkgs> { };
