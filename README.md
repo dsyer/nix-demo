@@ -254,13 +254,13 @@ You could use the same mechanism as above to simply replace the package with our
 ```nix
 with import <nixpkgs> { };
 let
-  kbld = stdenv.mkDerivation {
+  kbld = stdenv.mkDerivation rec {
     pname = "kbld";
     version = "0.32.0";
     src = fetchurl {
       # nix-prefetch-url this URL to find the hash value
       url =
-        "https://github.com/vmware-tanzu/carvel-kbld/releases/download/v0.32.0/kbld-linux-amd64";
+        "https://github.com/vmware-tanzu/carvel-kbld/releases/download/v${version}/kbld-linux-amd64";
       sha256 = "06im2ywxv7kmdfs00pc8b0jgbc7jxpgd4k6p1b183scrcp26lm6y";
     };
     phases = [ "installPhase" ];
@@ -296,13 +296,13 @@ The `pack` CLI has an existing Nix package, but there are also binary releases o
 ```nix
 with import <nixpkgs> { };
 let
-  buildpack = stdenv.mkDerivation {
+  buildpack = stdenv.mkDerivation rec {
     pname = "buildpack";
     version = "0.23.0";
     src = fetchurl {
       # nix-prefetch-url this URL to find the hash value
       url =
-        "https://github.com/buildpacks/pack/releases/download/v0.23.0/pack-v0.23.0-linux.tgz";
+        "https://github.com/buildpacks/pack/releases/download/v${version}/pack-v${version}-linux.tgz";
       sha256 = "1vkm0fbk66k8bi5pf4hkmq7929y5av3lh0xj3wpapj2fry18j9yi";
     };
     phases = [ "installPhase" ];
