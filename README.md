@@ -520,6 +520,35 @@ nix:$ jbang --version
 0.92.2
 ```
 
+### Overlays: Overriding a Standard Package
+
+Example `lastpass-cli`. The standard package is built from source, but we can override it:
+
+```nix
+with import <nixpkgs> {
+  overlays = [
+    (self: super: {
+      lastpass-cli = super.lastpass-cli.overrideAttrs (oldAttrs: rec {
+        version = "1.6.0";
+        src = self.fetchFromGitHub {
+          owner = "lastpass";
+          repo = "lastpass-cli";
+          rev = "v${version}";
+          sha256 = "054dvz273m0w30lf85qidwzmgwrvdjasdgmnhrgix4wjsrikrw8p";
+        };
+        patches = [];
+    });
+    })
+  ];
+};
+mkShell {
+  name = "env";
+  buildInputs = [ lastpass-cli ];
+}
+```
+
+(Version 1.6.0 is the latest at the time of writing, but it was not available in the Nixpkgs repository.) This one was quite straightforward because it uses `fetchFromGithub` and a standard `gcc` build process - all it needed was the `src` and to null out the `patches`.
+
 ### Overlays: Overriding a Go Package
 
 Packages built with `buildGoModule` are tricky to override. Let's try and do a better job of overriding the `pack` CLI, downgrading to version 0.22.0:
