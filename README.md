@@ -192,7 +192,7 @@ There's quite a bit to unpack there.
 
 ## Prefetch
 
-The `sha256` in the recipe above is a hash of the source code after it has been cloned. Everything is immutable in Nix and this is enforced through hashes of source code. To install or override a package from an external source you need the hashes, so Nix provides some utilities to help discover them, and also cache the source code locally. The build will break if the hash code changes which is useful. If it breaks it will tell you what value it expected and what it saw instead. You can copy-paste that value from the error message. Or you can use `nix-prefect-git` to download the source code ahead of time and inspect the metadata:
+The `sha256` in the recipe above is a hash of the source code after it has been cloned. Everything is immutable in Nix and this is enforced through hashes of source code. To install or override a package from an external source you need the hashes, so Nix provides some utilities to help discover them, and also cache the source code locally. The build will break if the hash code changes which is useful. If it breaks it will tell you what value it expected and what it saw instead. You can copy-paste that value from the error message. Or you can use `nix-prefetch-git` to download the source code ahead of time and inspect the metadata:
 
 ```
 $ nix-shell -p nix-prefetch-git
@@ -599,7 +599,7 @@ nix:$ nix-prefetch-url mirror://gnu/hello/hello-2.9.tar.gz
 19qy37gkasc4csb1d3bdiz9snn8mir2p3aj0jgzmfv0r2hi7mfzc
 ```
 
-This works for to main source hash:
+This works for the main source hash:
 
 ```
 nix:$ nix-prefetch-git --url https://github.com/buildpacks/pack --rev v0.22.0
